@@ -1,56 +1,64 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Panel de Control - Volcanes y Puna</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background-color: #f2f2f2;
-      padding: 40px;
-      text-align: center;
+  <meta charset="UTF-8" />
+  <title>Control de Bomba</title>
+  <script>
+    const clientId = "ypsaxkhx4tsxvcuupktx";
+    const clientSecret = "0f816ecd3f7246c19af0d9374f6102c0";
+    const deviceId = "eb3e4b3ddc51c3fb613c3p";
+
+    async function obtenerToken() {
+      const url = "https://openapi.tuyaeu.com/v1.0/token?grant_type=1";
+      const now = Date.now();
+      const message = clientId + now.toString();
+      const sign = await firmarHMAC(message, clientSecret);
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "client_id": clientId,
+          "sign": sign,
+          "t": now.toString(),
+          "sign_method": "HMAC-SHA256"
+        }
+      });
+
+      const data = await response.json();
+      return data.result.access_token;
     }
-    h1 {
-      margin-bottom: 30px;
+
+    async function firmarHMAC(message, key) {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(key);
+      const cryptoKey = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(message));
+      return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
-    .lugar {
-      background-color: white;
-      margin: 20px auto;
-      padding: 20px;
-      width: 300px;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+
+    async function enviarComando(accion) {
+      const token = await obtenerToken();
+      const comandos = {
+        "encender": [{ code: "switch_1", value: true }],
+        "apagar": [{ code: "switch_1", value: false }]
+      };
+
+      await fetch(`https://openapi.tuyaeu.com/v1.0/devices/${deviceId}/commands`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "client_id": clientId,
+          "access_token": token,
+          "sign_method": "HMAC-SHA256"
+        },
+        body: JSON.stringify({ commands: comandos[accion] })
+      });
     }
-    a {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 10px 15px;
-      background-color: #4caf50;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-    }
-    a:hover {
-      background-color: #45a049;
-    }
-  </style>
+  </script>
 </head>
-<body>
-  <h1>🗺️ Panel de Control - Volcanes y Puna</h1>
-
-  <div class="lugar">
-    <h2>🏕️ Lugar 1</h2>
-    <a href="lugar1.html">Ir al control</a>
-  </div>
-
-  <div class="lugar">
-    <h2>🏡 Lugar 2</h2>
-    <a href="lugar2.html">Ir al control</a>
-  </div>
-
-  <div class="lugar">
-    <h2>💧 Lugar 3</h2>
-    <a href="lugar3.html">Ir al control</a>
-  </div>
+<body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+  <h1>Control de Bomba</h1>
+  <button onclick="enviarComando('encender')" style="padding: 10px 20px; font-size: 16px;">🔘 Encender</button>
+  <button onclick="enviarComando('apagar')" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">🔴 Apagar</button>
 </body>
 </html>
